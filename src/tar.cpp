@@ -14,12 +14,8 @@ void tar_compress(const char *const src, const char *const tar)
     struct archive *a = archive_write_new();
     struct archive *disk = archive_read_disk_new();
     struct archive_entry *entry = nullptr;
+   
     int status = ARCHIVE_OK;
-
-    // TODO :: Check if it necessary
-    struct stat sb;
-    uint8_t is_dir = 0; // check if the entry is a directory
-
     char buff[BUFFER_SIZE];
     ssize_t len;
 
@@ -27,7 +23,6 @@ void tar_compress(const char *const src, const char *const tar)
         std::cerr << "Error: Invalid source directory" << std::endl;
         return;
     }
-    is_dir = (stat(src, &sb) == 0 && !(sb.st_mode & S_IFDIR)) ? 1 : 0;
 
     char tar_file[FILENAME_MAX];
 
