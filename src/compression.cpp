@@ -1,16 +1,20 @@
+#include "compression.hpp"
 #include <archive.h>
 #include <archive_entry.h>
 #include <string.h>
 #include <fcntl.h>
 #include <filesystem>
 #include <iostream>
+#include <map>
 
 #define BUFFER_SIZE (16 * 1024)
 #define BLOCK_SIZE  (10 * 1024)
 
 static void free(archive *write, archive *read);
+static compression_type_t get_compression_type(const char *const file);
+static int8_t filter(archive *a, const compression_type_t type, filter_t filter);
 
-void tar_compress(const char *const src, const char *const tar)
+void compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
     archive *a = archive_write_new();
     archive *disk = archive_read_disk_new();
@@ -42,7 +46,7 @@ void tar_compress(const char *const src, const char *const tar)
             return;
         }
         std::filesystem::path path = (src[0] == '.') ? cwd : src;
-        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.gz", cwd, path.filename().c_str()); // TODO :: Change tar.gz to type of compression
+        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str()); // TODO :: Change tar.gz to type of compression
     }
     else {
         strncpy(tar_file, tar, FILENAME_MAX);
@@ -57,7 +61,7 @@ void tar_compress(const char *const src, const char *const tar)
     }
 
     // TODO :: Change by type of compression
-    archive_write_add_filter_gzip(a);
+    filter(a, type, WRITE);
     archive_write_set_format_ustar(a);
 
     if (archive_write_open_filename(a, tar_file)) {
@@ -110,11 +114,12 @@ void tar_compress(const char *const src, const char *const tar)
     std::cout << "Tar file created successfully: " << tar_file << std::endl;
 }
 
-void tar_extract(const char *const tar, const char *const dest)
+void compression_extract(const char *const tar, const char *const dest, const compression_type_t type)
 {
     archive *a = archive_read_new();
     archive *disk = archive_write_disk_new();
     archive_entry *entry = nullptr;
+    compression_type_t use_type = type; 
 
     int status = ARCHIVE_OK;
     const void *buff;
@@ -136,7 +141,15 @@ void tar_extract(const char *const tar, const char *const dest)
 
     std::cout << "destination folder is: " << destination << std::endl;
 
-    archive_read_support_filter_gzip(a);
+    if (use_type == UNKNOWN) {
+        use_type = get_compression_type(tar);
+        if (type == UNKNOWN) {
+            std::cerr << "Error: Unknown compression type" << std::endl;
+            return;
+        }
+    }
+    
+    filter(a, use_type, READ);
     archive_read_support_format_tar(a);
 
     if (status = archive_read_open_filename(a, tar, BLOCK_SIZE)) {
@@ -203,4 +216,126 @@ static void free(archive *write, archive *read)
     }
 
     std::cout << std::endl;
+}
+
+// autodetect compression type
+static compression_type_t get_compression_type(const char *const file)
+{
+    std::filesystem::path path(file);
+    
+    if (path.extension() == ".gz") {
+        return TAR_GZ;
+    }
+    else if (path.extension() == ".bz2") {
+        return TAR_BZ2;
+    }
+    else if (path.extension() == ".xz") {
+        return TAR_XZ;
+    }
+    else if (path.extension() == ".zst") {
+        return TAR_ZST;
+    }
+    else if (path.extension() == ".lz4") {
+        return TAR_LZ4;
+    }
+    else if (path.extension() == ".lzma") {
+        return TAR_LZMA;
+    }
+    else if (path.extension() == ".zip") {
+        return TAR_ZIP;
+    }
+    else if (path.extension() == ".rar") {
+        return TAR_RAR;
+    }
+    else if (path.extension() == ".7z") {
+        return TAR_7Z;
+    }
+    else {
+        return UNKNOWN;
+    }
+}
+
+// filter archive
+static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
+{
+    switch (type)
+    {
+    case TAR_GZ:
+        if (filter == READ) {
+            archive_read_support_filter_gzip(a);
+        }
+        else {
+            archive_write_add_filter_gzip(a);
+        }
+        break;
+    case TAR_BZ2:
+        if (filter == READ) {
+            archive_read_support_filter_bzip2(a);
+        }
+        else {
+            archive_write_add_filter_bzip2(a);
+        }
+        break;
+    case TAR_XZ:
+        if (filter == READ) {
+            archive_read_support_filter_xz(a);
+        }
+        else {
+            archive_write_add_filter_xz(a);
+        }
+        break;
+    case TAR_ZST:
+        if (filter == READ) {
+            archive_read_support_filter_zstd(a);
+        }
+        else {
+            archive_write_add_filter_zstd(a);
+        }
+        break;
+    case TAR_LZ4:
+        if (filter == READ) {
+            archive_read_support_filter_lz4(a);
+        }
+        else {
+            archive_write_add_filter_lz4(a);
+        }
+        break;
+    case TAR_LZMA:
+        if (filter == READ) {
+            archive_read_support_filter_lzma(a);
+        }
+        else {
+            archive_write_add_filter_lzma(a);
+        }
+        break;
+    case TAR_ZIP:
+        if (filter == READ) {
+            archive_read_support_format_zip(a);
+        }
+        else {
+            archive_write_set_format_zip(a);
+        }
+        break;
+    case TAR_RAR:
+        if (filter == READ) {
+            archive_read_support_format_rar(a);
+        }
+        else {
+            std::cerr << "Error: RAR compression not supported" << std::endl;
+            return -1;
+        }
+        break;
+    case TAR_7Z:
+        if (filter == READ) {
+            archive_read_support_format_7zip(a);
+        }
+        else {
+            archive_write_set_format_7zip(a);
+        }
+        break;
+    default:
+        std::cerr << "Error: Unknown compression type" << std::endl;
+        return -1;
+    }
+    return 0;
 }

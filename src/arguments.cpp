@@ -1,11 +1,14 @@
 #include "arguments.hpp"
 #include "argparse/argparse.hpp"
 #include "main.hpp"
-#include "tar.hpp"
+#include "compression.hpp"
 
 static void show_version();
-static void compress_file(const char *const file, const char *const archive = nullptr);
-static void extract_archive(const char *const archive, const char *const dst = nullptr);
+static void compress_file(const char *const file, const char *const archive, compression_type_t type);
+static void extract_archive(const char *const archive, const char *const dst, compression_type_t type);
+
+static compression_type_t type_to_enum(const char *const type);
+static std::string available_types();
 
 static argparse::ArgumentParser program(PROJECT_NAME, PROJECT_VERSION);
 
@@ -28,30 +31,41 @@ void arg_configure()
         .default_value(false)
         .implicit_value(true)
         .nargs(1,2);
+    
+    program.add_argument("-t", "--type")
+        .help("Archive types " + available_types())
+        .default_value("gz")
+        .nargs(1);
+
 }
 
 void arg_parse(int argc, const char *const argv[])
 {
     program.parse_args(argc, argv);
 
-    if (program.is_used("--version"))
+    if (program.is_used("-c") && program.is_used("-e"))
+    {
+        std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
+    }
+    else if (program.is_used("-v"))
     {
         show_version();
-        std::exit(0);
     }
     else if (program.is_used("--compress"))
     {
         auto files = program.get<std::vector<std::string>>("--compress");
         const char *src = files[0].c_str();
         const char *archive = files.size() == 2 ? files[1].c_str() : nullptr;
-        compress_file(src, archive);
+        auto type = program.get<std::string>("--type");
+        compress_file(src, archive, type_to_enum(type.c_str()));
     }
     else if (program.is_used("--extract"))
     {
         auto files = program.get<std::vector<std::string>>("--extract");
         const char *archive = files[0].c_str();
         const char *dst = files.size() == 2 ? files[1].c_str() : nullptr;
-        extract_archive(archive, dst);
+        auto type = program.get<std::string>("--type");
+        extract_archive(archive, dst, type_to_enum(type.c_str()));
     }
     else
     {
@@ -64,12 +78,34 @@ static void show_version()
     std::cout << "Version: " << PROJECT_VERSION << std::endl;
 }
 
-static void compress_file(const char *const src, const char *const archive)
+static void compress_file(const char *const src, const char *const archive, compression_type_t type)
 {
-    tar_compress(src, archive);
+    compression_compress(src, archive, type);
 }
 
-static void extract_archive(const char *const archive, const char *const dst)
+static void extract_archive(const char *const archive, const char *const dst, compression_type_t type)
 {
-    tar_extract(archive, dst);
+    compression_extract(archive, dst, type);
+}
+
+static compression_type_t type_to_enum(const char *const type)
+{
+    for (const auto &[key, value] : compression_map)
+    {
+        if (value == type)
+        {
+            return key;
+        }
+    }
+    return UNKNOWN;
+}
+
+static std::string available_types()
+{
+    std::string types;
+    for (const auto &[key, value] : compression_map)
+    {
+        types += value + " ";
+    }
+    return types;
 }
