@@ -11,11 +11,12 @@ static void compress_free(archive *a, archive *disk);
 
 void tar_compress(const char *const src, const char *const tar)
 {
-    struct archive *a = archive_write_new();
-    struct archive *disk = archive_read_disk_new();
-    struct archive_entry *entry = nullptr;
+    archive *a = archive_write_new();
+    archive *disk = archive_read_disk_new();
+    archive_entry *entry = nullptr;
    
     int status = ARCHIVE_OK;
+    int fd = 0;
     char buff[BUFFER_SIZE];
     ssize_t len;
 
@@ -94,7 +95,7 @@ void tar_compress(const char *const src, const char *const tar)
         }
 
         if (archive_entry_size(entry) > 0) {
-            int fd = open(archive_entry_sourcepath(entry), O_RDONLY);
+            fd = open(archive_entry_sourcepath(entry), O_RDONLY);
             if (fd >= 0) {
                 while ((len = read(fd, buff, sizeof(buff))) > 0) {
                     archive_write_data(a, buff, len);
