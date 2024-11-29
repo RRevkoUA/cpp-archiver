@@ -10,6 +10,7 @@
 #define BLOCK_SIZE  (10 * 1024)
 
 static void free(archive *write, archive *read);
+static compression_type_t get_compression_type(const char *const file, compression_type_t type);
 
 void compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
@@ -204,4 +205,41 @@ static void free(archive *write, archive *read)
     }
 
     std::cout << std::endl;
+}
+
+// autodetect compression type
+static compression_type_t get_compression_type(const char *const file, compression_type_t type)
+{
+    std::filesystem::path path(file);
+    
+    if (path.extension() == ".gz") {
+        return TAR_GZ;
+    }
+    else if (path.extension() == ".bz2") {
+        return TAR_BZ2;
+    }
+    else if (path.extension() == ".xz") {
+        return TAR_XZ;
+    }
+    else if (path.extension() == ".zst") {
+        return TAR_ZST;
+    }
+    else if (path.extension() == ".lz4") {
+        return TAR_LZ4;
+    }
+    else if (path.extension() == ".lzma") {
+        return TAR_LZMA;
+    }
+    else if (path.extension() == ".zip") {
+        return TAR_ZIP;
+    }
+    else if (path.extension() == ".rar") {
+        return TAR_RAR;
+    }
+    else if (path.extension() == ".7z") {
+        return TAR_7Z;
+    }
+    else {
+        return UNKNOWN;
+    }
 }
