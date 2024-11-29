@@ -1,3 +1,4 @@
+#include "compression.hpp"
 #include <archive.h>
 #include <archive_entry.h>
 #include <string.h>
@@ -10,7 +11,7 @@
 
 static void free(archive *write, archive *read);
 
-void tar_compress(const char *const src, const char *const tar)
+void compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
     archive *a = archive_write_new();
     archive *disk = archive_read_disk_new();
@@ -110,7 +111,7 @@ void tar_compress(const char *const src, const char *const tar)
     std::cout << "Tar file created successfully: " << tar_file << std::endl;
 }
 
-void tar_extract(const char *const tar, const char *const dest)
+void compression_extract(const char *const tar, const char *const dest, const compression_type_t type)
 {
     archive *a = archive_read_new();
     archive *disk = archive_write_disk_new();

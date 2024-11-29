@@ -1,7 +1,7 @@
 #include "arguments.hpp"
 #include "argparse/argparse.hpp"
 #include "main.hpp"
-#include "tar.hpp"
+#include "compression.hpp"
 
 static void show_version();
 static void compress_file(const char *const file, const char *const archive = nullptr);
@@ -34,10 +34,13 @@ void arg_parse(int argc, const char *const argv[])
 {
     program.parse_args(argc, argv);
 
-    if (program.is_used("--version"))
+    if (program.is_used("-c") && program.is_used("-e"))
+    {
+        std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
+    }
+    else if (program.is_used("-v"))
     {
         show_version();
-        std::exit(0);
     }
     else if (program.is_used("--compress"))
     {
@@ -66,10 +69,10 @@ static void show_version()
 
 static void compress_file(const char *const src, const char *const archive)
 {
-    tar_compress(src, archive);
+    compression_compress(src, archive);
 }
 
 static void extract_archive(const char *const archive, const char *const dst)
 {
-    tar_extract(archive, dst);
+    compression_extract(archive, dst);
 }
