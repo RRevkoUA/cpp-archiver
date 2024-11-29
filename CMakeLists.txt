@@ -14,7 +14,7 @@ set(ARGPARSE_DIR ${MIDDLEWARE_DIR}/argparse)
 add_subdirectory(${LIBARCHIVE_DIR})
 add_subdirectory(${ARGPARSE_DIR})
 
-add_executable(archiver ${SRC_DIR}/main.cpp)
+add_executable(archiver ${SRC_DIR}/main.cpp ${SRC_DIR}/arguments.cpp)
 
 target_include_directories(archiver PRIVATE 
     ${INC_DIR}
