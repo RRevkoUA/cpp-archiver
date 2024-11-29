@@ -1,18 +1,6 @@
 #ifndef COMPRESSION_HPP
 #define COMPRESSION_HPP
-
-typedef enum {
-    TAR_GZ = 0,
-    TAR_BZ2,
-    TAR_XZ,
-    TAR_ZST,
-    TAR_LZ4,
-    TAR_LZMA,
-    TAR_ZIP,
-    TAR_RAR,
-    TAR_7Z,
-    UNKNOWN = -1
-} compression_type_t; 
+#include "compression_enums.hpp"
 
 // Compress a tar file.
 // src: The file or dir to be compress.
