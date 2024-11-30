@@ -46,7 +46,7 @@ void compression_compress(const char *const src, const char *const tar, const co
             return;
         }
         std::filesystem::path path = (src[0] == '.') ? cwd : src;
-        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str()); // TODO :: Change tar.gz to type of compression
+        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str());
     }
     else {
         strncpy(tar_file, tar, FILENAME_MAX);
@@ -60,7 +60,6 @@ void compression_compress(const char *const src, const char *const tar, const co
         return;
     }
 
-    // TODO :: Change by type of compression
     filter(a, type, WRITE);
     archive_write_set_format_ustar(a);
 
@@ -168,7 +167,6 @@ void compression_extract(const char *const tar, const char *const dest, const co
         } 
 
         // extract
-
         if (archive_write_header(disk, entry)) {
             std::cerr<< "Error: " << archive_error_string(disk);
             break;
@@ -177,10 +175,7 @@ void compression_extract(const char *const tar, const char *const dest, const co
         while (true) {
             status = archive_read_data_block(a, &buff, &size, &offset);
             if (status == ARCHIVE_EOF) break;
-            else if (status) {
-                
-                break;
-            }
+            else if (status) break;
 
             if (archive_write_data_block(disk, buff, size, offset))
             {
