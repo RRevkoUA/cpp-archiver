@@ -15,11 +15,6 @@ static argparse::ArgumentParser program(PROJECT_NAME, PROJECT_VERSION);
 
 void arg_configure()
 {
-    program.add_argument("-v", "--version")
-        .help("show program version")
-        .default_value(false)
-        .implicit_value(true);
-
     program.add_argument("-c", "--compress")
         .help("compress a file or directory")
         .default_value(false)
@@ -71,11 +66,6 @@ void arg_parse(int argc, const char *const argv[])
     {
         std::cout << program;
     }
-}
-
-static void show_version()
-{
-    std::cout << "Version: " << PROJECT_VERSION << std::endl;
 }
 
 static void compress_file(const char *const src, const char *const archive, compression_type_t type)
