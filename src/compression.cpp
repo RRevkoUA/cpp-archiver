@@ -20,10 +20,11 @@ void compression_compress(const char *const src, const char *const tar, const co
     archive *disk = archive_read_disk_new();
     archive_entry *entry = nullptr;
    
+    std::string archive_name = src; 
+    ssize_t len;
     int status = ARCHIVE_OK;
     int fd = 0;
     char buff[BUFFER_SIZE];
-    ssize_t len;
 
     if (!src || strlen(src) == 0) {
         std::cerr << "Error: Invalid source directory" << std::endl;
@@ -34,18 +35,13 @@ void compression_compress(const char *const src, const char *const tar, const co
 
     if (tar == nullptr || strcmp(tar, ".") == 0) {
         char cwd[FILENAME_MAX];
-        const char *dir_name = strrchr(src, int('/')); // TODO :: check for irrationality of next 6 lines
-        if (dir_name == nullptr) {
-            dir_name = (char *)src;
-        }
-        else {
-            dir_name++;
-        }
         if (!getcwd(cwd, sizeof(cwd))) {
             std::cerr << "Error: Could not get current directory" << std::endl;
             return;
         }
-        std::filesystem::path path = (src[0] == '.') ? cwd : src;
+
+        archive_name.erase(archive_name.find_last_not_of("/") + 1);
+        std::filesystem::path path = (archive_name == ".") ? cwd : archive_name;
         snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str());
     }
     else {
@@ -177,15 +173,13 @@ void compression_extract(const char *const tar, const char *const dest, const co
             if (status == ARCHIVE_EOF) break;
             else if (status) break;
 
-            if (archive_write_data_block(disk, buff, size, offset))
-            {
+            if (archive_write_data_block(disk, buff, size, offset)) {
                 std::cerr<< "Error: " << archive_error_string(disk);
                 break;
             }
         }
 
-        if (archive_write_finish_entry(disk))
-        {
+        if (archive_write_finish_entry(disk)) {
             std::cerr<< "Error: " << archive_error_string(disk);
             break;
         }
