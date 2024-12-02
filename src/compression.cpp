@@ -21,33 +21,30 @@ void compression_compress(const char *const src, const char *const tar, const co
     archive *disk = archive_read_disk_new();
     archive_entry *entry = nullptr;
    
+    std::string archive_name = src; 
+    ssize_t len;
     int status = ARCHIVE_OK;
     int fd = 0;
     char buff[BUFFER_SIZE];
-    ssize_t len;
+    char tar_file[FILENAME_MAX];
+
 
     if (!src || strlen(src) == 0) {
         std::cerr << "Error: Invalid source directory" << std::endl;
         return;
     }
 
-    char tar_file[FILENAME_MAX];
 
     if (tar == nullptr || is_directory(tar)) {
         char cwd[FILENAME_MAX];
-        const char *dir_name = strrchr(src, int('/')); // TODO :: check for irrationality of next 6 lines
-        if (dir_name == nullptr) {
-            dir_name = (char *)src;
-        }
-        else {
-            dir_name++;
-        }
         if (!getcwd(cwd, sizeof(cwd))) {
             std::cerr << "Error: Could not get current directory" << std::endl;
             return;
         }
-        std::filesystem::path path = (src[0] == '.') ? cwd : src;
-        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str()); // TODO :: Change tar.gz to type of compression
+
+        archive_name.erase(archive_name.find_last_not_of("/") + 1);
+        std::filesystem::path path = (archive_name == ".") ? cwd : archive_name;
+        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[type].c_str());
     }
     else {
         strncpy(tar_file, tar, FILENAME_MAX);
@@ -61,7 +58,12 @@ void compression_compress(const char *const src, const char *const tar, const co
         return;
     }
 
-    filter(a, type, WRITE);
+
+    if (!filter(a, type, WRITE)) {
+        std::cerr << "Error: Could not set filter" << std::endl;
+        free(a, disk);
+        return;
+    }
     archive_write_set_format_ustar(a);
 
     if (archive_write_open_filename(a, tar_file)) {
@@ -120,13 +122,22 @@ void compression_extract(const char *const tar, const char *const dest, const co
     archive *disk = archive_write_disk_new();
     archive_entry *entry = nullptr;
     compression_type_t use_type = type; 
-
-    int status = ARCHIVE_OK;
-    const void *buff;
     size_t size;
     int64_t offset;
 
+    int status = ARCHIVE_OK;
+    const void *buff;
     char destination[FILENAME_MAX];
+
+    
+    if (use_type == UNKNOWN) {
+        use_type = get_compression_type(tar);
+        if (use_type == UNKNOWN) {
+            std::cerr << "Error: Unknown compression type" << std::endl;
+            return;
+        }
+    }
+
     if (dest == nullptr || strcmp(dest, ".") == 0) {
         getcwd(destination, sizeof(destination));
     } 
@@ -141,14 +152,6 @@ void compression_extract(const char *const tar, const char *const dest, const co
 
     std::cout << "destination folder is: " << destination << std::endl;
 
-    if (use_type == UNKNOWN) {
-        use_type = get_compression_type(tar);
-        if (type == UNKNOWN) {
-            std::cerr << "Error: Unknown compression type" << std::endl;
-            return;
-        }
-    }
-    
     filter(a, use_type, READ);
     archive_read_support_format_tar(a);
 
@@ -168,7 +171,6 @@ void compression_extract(const char *const tar, const char *const dest, const co
         } 
 
         // extract
-
         if (archive_write_header(disk, entry)) {
             std::cerr<< "Error: " << archive_error_string(disk);
             break;
@@ -177,20 +179,15 @@ void compression_extract(const char *const tar, const char *const dest, const co
         while (true) {
             status = archive_read_data_block(a, &buff, &size, &offset);
             if (status == ARCHIVE_EOF) break;
-            else if (status) {
-                
-                break;
-            }
+            else if (status) break;
 
-            if (archive_write_data_block(disk, buff, size, offset))
-            {
+            if (archive_write_data_block(disk, buff, size, offset)) {
                 std::cerr<< "Error: " << archive_error_string(disk);
                 break;
             }
         }
 
-        if (archive_write_finish_entry(disk))
-        {
+        if (archive_write_finish_entry(disk)) {
             std::cerr<< "Error: " << archive_error_string(disk);
             break;
         }
@@ -296,7 +293,9 @@ static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
     case TAR_ZIP:
         if (filter == READ) {
             archive_read_support_format_zip(a);
-        }
+        }>>>>>>> issue-7-add-tests
+68
+
         else {
             archive_write_set_format_zip(a);
         }

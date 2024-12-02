@@ -3,7 +3,6 @@
 #include "main.hpp"
 #include "compression.hpp"
 
-static void show_version();
 static void compress_file(const char *const file, const char *const archive, compression_type_t type);
 static void extract_archive(const char *const archive, const char *const dst, compression_type_t type);
 
@@ -15,11 +14,6 @@ static argparse::ArgumentParser program(PROJECT_NAME, PROJECT_VERSION);
 
 void arg_configure()
 {
-    program.add_argument("-v", "--version")
-        .help("show program version")
-        .default_value(false)
-        .implicit_value(true);
-
     program.add_argument("-c", "--compress")
         .help("compress a file or directory")
         .default_value(false)
@@ -47,10 +41,6 @@ void arg_parse(int argc, const char *const argv[])
     {
         std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
     }
-    else if (program.is_used("-v"))
-    {
-        show_version();
-    }
     else if (program.is_used("--compress"))
     {
         auto files = program.get<std::vector<std::string>>("--compress");
@@ -71,11 +61,6 @@ void arg_parse(int argc, const char *const argv[])
     {
         std::cout << program;
     }
-}
-
-static void show_version()
-{
-    std::cout << "Version: " << PROJECT_VERSION << std::endl;
 }
 
 static void compress_file(const char *const src, const char *const archive, compression_type_t type)
