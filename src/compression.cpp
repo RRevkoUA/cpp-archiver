@@ -11,6 +11,7 @@
 #define BLOCK_SIZE  (10 * 1024)
 
 static void free(archive *write, archive *read);
+static bool is_directory(const char *const path);
 static compression_type_t get_compression_type(const char *const file);
 static int8_t filter(archive *a, const compression_type_t type, filter_t filter);
 
@@ -34,7 +35,7 @@ void compression_compress(const char *const src, const char *const tar, const co
     }
 
 
-    if (tar == nullptr || strcmp(tar, ".") == 0) {
+    if (tar == nullptr || is_directory(tar)) {
         char cwd[FILENAME_MAX];
         if (!getcwd(cwd, sizeof(cwd))) {
             std::cerr << "Error: Could not get current directory" << std::endl;
@@ -56,6 +57,7 @@ void compression_compress(const char *const src, const char *const tar, const co
         free(a, disk);
         return;
     }
+
 
     if (!filter(a, type, WRITE)) {
         std::cerr << "Error: Could not set filter" << std::endl;
@@ -213,40 +215,25 @@ static void free(archive *write, archive *read)
     std::cout << std::endl;
 }
 
+// check if path is a directory
+bool is_directory(const char *const path)
+{
+    struct stat statbuf;
+    if (stat(path, &statbuf) != 0) {
+        return false;
+    }
+    return S_ISDIR(statbuf.st_mode);
+}
+
 // autodetect compression type
 static compression_type_t get_compression_type(const char *const file)
 {
     std::filesystem::path path(file);
-    
-    if (path.extension() == ".gz") {
-        return TAR_GZ;
-    }
-    else if (path.extension() == ".bz2") {
-        return TAR_BZ2;
-    }
-    else if (path.extension() == ".xz") {
-        return TAR_XZ;
-    }
-    else if (path.extension() == ".zst") {
-        return TAR_ZST;
-    }
-    else if (path.extension() == ".lz4") {
-        return TAR_LZ4;
-    }
-    else if (path.extension() == ".lzma") {
-        return TAR_LZMA;
-    }
-    else if (path.extension() == ".zip") {
-        return TAR_ZIP;
-    }
-    else if (path.extension() == ".rar") {
-        return TAR_RAR;
-    }
-    else if (path.extension() == ".7z") {
-        return TAR_7Z;
-    }
-    else {
-        return UNKNOWN;
+
+    for (auto &ext : compression_map) {
+        if (path.extension() == ext.second) {
+            return ext.first;
+        }
     }
 }
 
@@ -306,7 +293,9 @@ static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
     case TAR_ZIP:
         if (filter == READ) {
             archive_read_support_format_zip(a);
-        }
+        }>>>>>>> issue-7-add-tests
+68
+
         else {
             archive_write_set_format_zip(a);
         }
