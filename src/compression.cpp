@@ -25,13 +25,14 @@ void compression_compress(const char *const src, const char *const tar, const co
     int status = ARCHIVE_OK;
     int fd = 0;
     char buff[BUFFER_SIZE];
+    char tar_file[FILENAME_MAX];
+
 
     if (!src || strlen(src) == 0) {
         std::cerr << "Error: Invalid source directory" << std::endl;
         return;
     }
 
-    char tar_file[FILENAME_MAX];
 
     if (tar == nullptr || strcmp(tar, ".") == 0) {
         char cwd[FILENAME_MAX];
@@ -56,7 +57,11 @@ void compression_compress(const char *const src, const char *const tar, const co
         return;
     }
 
-    filter(a, type, WRITE);
+    if (!filter(a, type, WRITE)) {
+        std::cerr << "Error: Could not set filter" << std::endl;
+        free(a, disk);
+        return;
+    }
     archive_write_set_format_ustar(a);
 
     if (archive_write_open_filename(a, tar_file)) {
@@ -115,13 +120,22 @@ void compression_extract(const char *const tar, const char *const dest, const co
     archive *disk = archive_write_disk_new();
     archive_entry *entry = nullptr;
     compression_type_t use_type = type; 
-
-    int status = ARCHIVE_OK;
-    const void *buff;
     size_t size;
     int64_t offset;
 
+    int status = ARCHIVE_OK;
+    const void *buff;
     char destination[FILENAME_MAX];
+
+    
+    if (use_type == UNKNOWN) {
+        use_type = get_compression_type(tar);
+        if (use_type == UNKNOWN) {
+            std::cerr << "Error: Unknown compression type" << std::endl;
+            return;
+        }
+    }
+
     if (dest == nullptr || strcmp(dest, ".") == 0) {
         getcwd(destination, sizeof(destination));
     } 
@@ -136,14 +150,6 @@ void compression_extract(const char *const tar, const char *const dest, const co
 
     std::cout << "destination folder is: " << destination << std::endl;
 
-    if (use_type == UNKNOWN) {
-        use_type = get_compression_type(tar);
-        if (type == UNKNOWN) {
-            std::cerr << "Error: Unknown compression type" << std::endl;
-            return;
-        }
-    }
-    
     filter(a, use_type, READ);
     archive_read_support_format_tar(a);
 
