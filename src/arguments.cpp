@@ -3,7 +3,6 @@
 #include "main.hpp"
 #include "compression.hpp"
 
-static void show_version();
 static void compress_file(const char *const file, const char *const archive, compression_type_t type);
 static void extract_archive(const char *const archive, const char *const dst, compression_type_t type);
 
@@ -41,10 +40,6 @@ void arg_parse(int argc, const char *const argv[])
     if (program.is_used("-c") && program.is_used("-e"))
     {
         std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
-    }
-    else if (program.is_used("-v"))
-    {
-        show_version();
     }
     else if (program.is_used("--compress"))
     {
