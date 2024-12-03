@@ -40,6 +40,7 @@ void arg_parse(int argc, const char *const argv[])
     if (program.is_used("-c") && program.is_used("-e"))
     {
         std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
+        throw std::runtime_error("Invalid arguments");
     }
     else if (program.is_used("--compress"))
     {
@@ -65,12 +66,18 @@ void arg_parse(int argc, const char *const argv[])
 
 static void compress_file(const char *const src, const char *const archive, compression_type_t type)
 {
-    compression_compress(src, archive, type);
+    if (compression_compress(src, archive, type))
+    {
+        throw std::runtime_error("Error compressing file");
+    };
 }
 
 static void extract_archive(const char *const archive, const char *const dst, compression_type_t type)
 {
-    compression_extract(archive, dst, type);
+    if (compression_extract(archive, dst, type))
+    {
+        throw std::runtime_error("Error extracting archive");
+    }
 }
 
 static compression_type_t type_to_enum(const char *const type)
