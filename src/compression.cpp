@@ -15,11 +15,10 @@ static compression_type_t get_compression_type(const char *const file);
 static int8_t filter(archive *a, const compression_type_t type, filter_t filter);
 
 // compress parts
-// Set the name of the archive file.
+// prepare the tar file
 static int8_t compress_prepare(std::string *name, compression_type_t *use_type, const char *const src, const char *const tar, const compression_type_t type);
 static int8_t compress_open(archive *a, archive *disk, const std::string name, const std::string src, const compression_type_t type);
 static int8_t compress_writing(archive *a, archive *disk, const std::string src, const std::string tar);
-
 
 int8_t compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
@@ -27,7 +26,7 @@ int8_t compression_compress(const char *const src, const char *const tar, const 
     archive *disk = archive_read_disk_new();
    
     std::string source_dir = src; 
-    std::string tar_name = tar;
+    std::string tar_name = "";
     compression_type_t use_type = type;
 
     if (compress_prepare(&tar_name, &use_type, src, tar, type)) {
@@ -287,7 +286,9 @@ static int8_t compress_prepare(std::string *name, compression_type_t *use_type, 
     }
    
     if (tar == nullptr) {
-        std::filesystem::path path = src;
+        std::cout<<"tar file not provided. Creating tar file with default name"<<std::endl;
+        std::filesystem::path path = realpath(src, nullptr);
+
         *name = path.filename().string();
         *name += ".tar.";
         *name += compression_map[*use_type];
@@ -346,6 +347,7 @@ static int8_t compress_writing(archive *a, archive *disk, std::string src, const
 {
         archive_entry *entry = nullptr;
         ssize_t len;
+        std::string src_path = src;
 
         int status = ARCHIVE_OK;
         int fd = 0;
@@ -363,8 +365,17 @@ static int8_t compress_writing(archive *a, archive *disk, std::string src, const
             return -1;
         }
 
+        src_path = archive_entry_pathname(entry);
+        
+        if (is_directory(src.c_str())) {
+            src_path.erase(0, strlen(src.c_str()));
+        } else {
+            src_path = src_path.substr(src_path.find_last_of("/") + 1);
+        }
+
+        archive_entry_set_pathname(entry, src_path.c_str());
+
         archive_read_disk_descend(disk);
-        std::cout<<"entry name: " << archive_entry_gname(entry) << std::endl;    
         if (archive_write_header(a, entry)) {
             std::cerr << "Error: " << archive_error_string(a) << std::endl;
             std::cerr << "Skip this entry" << std::endl;
