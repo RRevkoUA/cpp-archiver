@@ -18,7 +18,7 @@ To install the project, clone the repository and its submodules:
     ```bash
     git submodule update --init --recursive
     ```
-    
+
 ## Building the Project
 
 To build the project, follow these steps:
@@ -55,12 +55,29 @@ To compress a file or directory, use the `--compress` or `-c` option followed by
 ./archiver --compress <source> [archive]
 ```
 
+For example, to compress the `test.txt` file into an archive named `test.txt.tar.zip`, you would use the following command:
+
+```bash
+./archiver --compress <path to test.txt> <path to test.txt.tar.zip> 
+```
+or 
+
+```bash
+./archiver --compress <path to test.txt> -t zip
+```
+
 ### Extract an Archive
 
 To extract an archive, use the `--extract` or `-e` option followed by the archive file and optionally the destination directory:
 
 ```bash
 ./archiver --extract <archive> [destination]
+```
+
+For example, to extract the `test.txt.tar.zip` archive into the `extracted` directory, you would use the following command:
+
+```bash
+./archiver --extract <path to test.txt.tar.zip> <path to extracted dir>
 ```
 
 ### Specify Compression Type
