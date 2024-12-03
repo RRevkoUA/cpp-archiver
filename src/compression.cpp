@@ -17,8 +17,14 @@ static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
 // compress parts
 // prepare the tar file
 static int8_t compress_prepare(std::string *name, compression_type_t *use_type, const char *const src, const char *const tar, const compression_type_t type);
+// open the archive and disk
 static int8_t compress_open(archive *a, archive *disk, const std::string name, const std::string src, const compression_type_t type);
+// write the archive
 static int8_t compress_writing(archive *a, archive *disk, const std::string src, const std::string tar);
+
+//extract parts
+// prepare the tar file
+
 
 int8_t compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
@@ -31,7 +37,6 @@ int8_t compression_compress(const char *const src, const char *const tar, const 
 
     if (compress_prepare(&tar_name, &use_type, src, tar, type)) {
         std::cerr << "Error: Could not set archive name" << std::endl;
-        free(a, disk);
         return -1;
     }
 
@@ -135,7 +140,7 @@ int8_t compression_extract(const char *const tar, const char *const dest, const 
         }
     }
 
-    std::cout << "files extracted successfully";
+    std::cout << "files extracted successfully" << std::endl;
     free(disk,a);
     return 0;
 }
@@ -150,12 +155,14 @@ static void free(archive *write, archive *read)
         std::cout << " archive";
         archive_write_close(write);
         archive_write_free(write);
+        write = nullptr;
     }
 
-    if (write) {
+    if (read) {
         std::cout << " disk";
         archive_read_close(read);
         archive_read_free(read);
+        read = nullptr;
     }
 
     std::cout << std::endl;
@@ -314,20 +321,17 @@ static int8_t compress_open(archive *a, archive *disk, const std::string name, c
 {
     if (!a || !disk) {
         std::cerr << "Error: Could not create archive structures" << std::endl;
-        free(a, disk);
         return -1;
     }
 
     if (filter(a, type, WRITE)) {
         std::cerr << "Error: Could not set filter" << std::endl;
-        free(a, disk);
         return -1;
     }
     archive_write_set_format_ustar(a);
 
     if (archive_write_open_filename(a, name.c_str())) {
         std::cerr << "Error: " << archive_error_string(a) << std::endl;
-        free(a, disk);
         return -1;
     }
 
@@ -335,7 +339,6 @@ static int8_t compress_open(archive *a, archive *disk, const std::string name, c
 
     if (archive_read_disk_open(disk, src.c_str())) {
         std::cerr << "Error: " << archive_error_string(disk) <<  std::endl;
-        free(a, disk);
         return -1;
     }
 
@@ -361,7 +364,6 @@ static int8_t compress_writing(archive *a, archive *disk, std::string src, const
         
         if (status) {
             std::cerr << "Error: " << archive_error_string(disk) << std::endl;
-            free(a, disk);
             return -1;
         }
 
