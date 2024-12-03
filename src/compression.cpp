@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <iostream>
-#include <map>
 
 #define BUFFER_SIZE (16 * 1024)
 #define BLOCK_SIZE  (10 * 1024)
@@ -15,115 +14,44 @@ static bool is_directory(const char *const path);
 static compression_type_t get_compression_type(const char *const file);
 static int8_t filter(archive *a, const compression_type_t type, filter_t filter);
 
+// compress parts
+// Set the name of the archive file.
+static int8_t compress_prepare(std::string *name, compression_type_t *use_type, const char *const src, const char *const tar, const compression_type_t type);
+static int8_t compress_open(archive *a, archive *disk, const std::string name, const std::string src, const compression_type_t type);
+static int8_t compress_writing(archive *a, archive *disk, const std::string src, const std::string tar);
+
+
 int8_t compression_compress(const char *const src, const char *const tar, const compression_type_t type)
 {
     archive *a = archive_write_new();
     archive *disk = archive_read_disk_new();
-    archive_entry *entry = nullptr;
    
-    std::string archive_name = src; 
-    ssize_t len;
+    std::string source_dir = src; 
+    std::string tar_name = tar;
     compression_type_t use_type = type;
-    int status = ARCHIVE_OK;
-    int fd = 0;
-    char buff[BUFFER_SIZE];
-    char tar_file[FILENAME_MAX];
 
-
-    if (!src || strlen(src) == 0) {
-        std::cerr << "Error: Invalid source directory" << std::endl;
-        return -1;
-    }
-
-   
-    if (use_type == UNKNOWN) {
-        use_type = get_compression_type(tar);
-        if (use_type == UNKNOWN) {
-            std::cerr << "Error: Unknown compression type" << std::endl;
-            return -1;
-        }
-    }
-
-    if (tar == nullptr || is_directory(tar)) {
-        char cwd[FILENAME_MAX];
-        if (!getcwd(cwd, sizeof(cwd))) {
-            std::cerr << "Error: Could not get current directory" << std::endl;
-            return -1;
-        }
-
-        archive_name.erase(archive_name.find_last_not_of("/") + 1);
-        std::filesystem::path path = (is_directory(archive_name.data())) ? cwd : archive_name;
-        snprintf(tar_file, sizeof(tar_file), "%s/%s.tar.%s", cwd, path.filename().c_str(), compression_map[use_type].c_str());
-    }
-    else {
-        strncpy(tar_file, tar, FILENAME_MAX);
-    }
-
-    std::cout << "tar_file: " << tar_file << std::endl;
-
-    if (!a || !disk) {
-        std::cerr << "Error: Could not create archive structures" << std::endl;
+    if (compress_prepare(&tar_name, &use_type, src, tar, type)) {
+        std::cerr << "Error: Could not set archive name" << std::endl;
         free(a, disk);
         return -1;
     }
 
+    std::cout << "tar_file: " << tar_name << std::endl;
 
-    if (filter(a, use_type, WRITE)) {
-        std::cerr << "Error: Could not set filter" << std::endl;
-        free(a, disk);
-        return -1;
-    }
-    archive_write_set_format_ustar(a);
-
-    if (archive_write_open_filename(a, tar_file)) {
-        std::cerr << "Error: " << archive_error_string(a) << std::endl;
+    if (compress_open(a, disk, tar_name, source_dir, use_type)) {
+        std::cerr << "Error: Could not open archive" << std::endl;
         free(a, disk);
         return -1;
     }
 
-    archive_read_disk_set_standard_lookup(disk);
-
-    if (archive_read_disk_open(disk, src)) {
-        std::cerr << "Error: " << archive_error_string(disk) <<  std::endl;
+    if (compress_writing(a, disk, source_dir, tar_name)) {
+        std::cerr << "Error: Could not write archive" << std::endl;
         free(a, disk);
         return -1;
-    }
-
-    while (true) {
-        entry = archive_entry_new();
-        status = archive_read_next_header2(disk, entry);
-
-        if (status == ARCHIVE_EOF) break;
-        
-        if (status) {
-            std::cerr << "Error: " << archive_error_string(disk) << std::endl;
-            free(a, disk);
-            return -1;
-        }
-
-        archive_read_disk_descend(disk);
-
-        if (archive_write_header(a, entry)) {
-            std::cerr << "Error: " << archive_error_string(a) << std::endl;
-            std::cerr << "Skip this entry" << std::endl;
-            archive_entry_free(entry);
-            continue;
-        }
-
-        if (archive_entry_size(entry) > 0) {
-            fd = open(archive_entry_sourcepath(entry), O_RDONLY);
-            if (fd >= 0) {
-                while ((len = read(fd, buff, sizeof(buff))) > 0) {
-                    archive_write_data(a, buff, len);
-                }
-                close(fd);
-            }
-        }
-        archive_entry_free(entry);
     }
 
     free(a, disk);
-    std::cout << "Tar file created successfully: " << tar_file << std::endl;
+    std::cout << "Tar file created successfully: " << tar_name << std::endl;
     return 0;
 }
 
@@ -212,6 +140,8 @@ int8_t compression_extract(const char *const tar, const char *const dest, const 
     free(disk,a);
     return 0;
 }
+
+// Static functions
 // close and free archive objects
 static void free(archive *write, archive *read)
 {
@@ -233,7 +163,7 @@ static void free(archive *write, archive *read)
 }
 
 // check if path is a directory
-bool is_directory(const char *const path)
+static bool is_directory(const char *const path)
 {
     struct stat statbuf;
     if (stat(path, &statbuf) != 0) {
@@ -336,6 +266,122 @@ static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
     default:
         std::cerr << "Error: Unknown compression type" << std::endl;
         return -1;
+    }
+    return 0;
+}
+
+// set archive name
+static int8_t compress_prepare(std::string *name, compression_type_t *use_type, const char *const src, const char *const tar, const compression_type_t type)
+{
+    if (!src || strlen(src) == 0) {
+        std::cerr << "Error: Invalid source directory" << std::endl;
+        return -1;
+    }
+   
+    if (*use_type == UNKNOWN) {
+        *use_type = get_compression_type(tar);
+        if (*use_type == UNKNOWN) {
+            std::cout << "type was not set. Use tar.gz by default" << std::endl;
+            *use_type = TAR_GZ;
+        }
+    }
+   
+    if (tar == nullptr) {
+        std::filesystem::path path = src;
+        *name = path.filename().string();
+        *name += ".tar.";
+        *name += compression_map[*use_type];
+    }
+    else if (is_directory(tar)) {
+        std::string dir;
+        dir = realpath(tar, nullptr);
+        std::filesystem::path path = realpath(src, nullptr);
+        *name = dir;
+        *name += "/";
+        *name += path.filename().string();
+        *name += ".tar.";
+        *name += compression_map[*use_type];
+    }
+    else {
+        *name = tar;
+    }
+    return 0;
+}
+
+// open archive and disk
+static int8_t compress_open(archive *a, archive *disk, const std::string name, const std::string src, const compression_type_t type)
+{
+    if (!a || !disk) {
+        std::cerr << "Error: Could not create archive structures" << std::endl;
+        free(a, disk);
+        return -1;
+    }
+
+    if (filter(a, type, WRITE)) {
+        std::cerr << "Error: Could not set filter" << std::endl;
+        free(a, disk);
+        return -1;
+    }
+    archive_write_set_format_ustar(a);
+
+    if (archive_write_open_filename(a, name.c_str())) {
+        std::cerr << "Error: " << archive_error_string(a) << std::endl;
+        free(a, disk);
+        return -1;
+    }
+
+    archive_read_disk_set_standard_lookup(disk);
+
+    if (archive_read_disk_open(disk, src.c_str())) {
+        std::cerr << "Error: " << archive_error_string(disk) <<  std::endl;
+        free(a, disk);
+        return -1;
+    }
+
+    return 0;
+}
+
+// write archive
+static int8_t compress_writing(archive *a, archive *disk, std::string src, const std::string tar)
+{
+        archive_entry *entry = nullptr;
+        ssize_t len;
+
+        int status = ARCHIVE_OK;
+        int fd = 0;
+        char buff[BUFFER_SIZE];
+
+        while (true) {
+        entry = archive_entry_new();
+        status = archive_read_next_header2(disk, entry);
+
+        if (status == ARCHIVE_EOF) break;
+        
+        if (status) {
+            std::cerr << "Error: " << archive_error_string(disk) << std::endl;
+            free(a, disk);
+            return -1;
+        }
+
+        archive_read_disk_descend(disk);
+        std::cout<<"entry name: " << archive_entry_gname(entry) << std::endl;    
+        if (archive_write_header(a, entry)) {
+            std::cerr << "Error: " << archive_error_string(a) << std::endl;
+            std::cerr << "Skip this entry" << std::endl;
+            archive_entry_free(entry);
+            continue;
+        }
+
+        if (archive_entry_size(entry) > 0) {
+            fd = open(archive_entry_sourcepath(entry), O_RDONLY);
+            if (fd >= 0) {
+                while ((len = read(fd, buff, sizeof(buff))) > 0) {
+                    archive_write_data(a, buff, len);
+                }
+                close(fd);
+            }
+        }
+        archive_entry_free(entry);
     }
     return 0;
 }
