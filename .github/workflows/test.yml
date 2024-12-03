@@ -1,0 +1,38 @@
+name: Tests in Gentoo
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: gentoo/stage3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install dependencies in Gentoo
+        run: |
+          sudo emerge --sync
+          sudo emerge -av cmake build-essential 
+
+      - name: Build with CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j
+
+      - name: Run tests with CTest
+        run: |
+          cd build
+          ctest --output-on-failure
