@@ -30,7 +30,6 @@ int8_t compression_compress(const char *const src, const char *const tar, const 
 {
     archive *a = archive_write_new();
     archive *disk = archive_read_disk_new();
-   
     std::string source_dir = src; 
     std::string tar_name = "";
     compression_type_t use_type = type;
@@ -181,6 +180,10 @@ static bool is_directory(const char *const path)
 // autodetect compression type
 static compression_type_t get_compression_type(const char *const file)
 {
+    if (!file) {
+        return UNKNOWN;
+    }
+
     std::filesystem::path path(file);
 
     for (auto &ext : compression_map) {
@@ -279,11 +282,11 @@ static int8_t filter(archive *a, const compression_type_t type, filter_t filter)
 // set archive name
 static int8_t compress_prepare(std::string *name, compression_type_t *use_type, const char *const src, const char *const tar, const compression_type_t type)
 {
-    if (!src || strlen(src) == 0) {
+    if (!src || strlen(src) == 0 || !std::filesystem::exists(src)) {
         std::cerr << "Error: Invalid source directory" << std::endl;
         return -1;
     }
-   
+
     if (*use_type == UNKNOWN) {
         *use_type = get_compression_type(tar);
         if (*use_type == UNKNOWN) {
