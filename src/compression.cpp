@@ -365,7 +365,7 @@ static int8_t extract_prepare(std::string *name, compression_type_t *use_type, c
         *name = "./";
     }
     else {
-        *name = realpath(dest, nullptr);
+        *name = dest;
     }
 
     return 0;
