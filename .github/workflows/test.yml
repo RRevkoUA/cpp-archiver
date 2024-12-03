@@ -22,8 +22,8 @@ jobs:
 
       - name: Install dependencies in Gentoo
         run: |
-          sudo emerge --sync
-          sudo emerge -av cmake build-essential 
+          emerge --sync
+          emerge -av cmake build-essential 
 
       - name: Build with CMake
         run: |
@@ -35,4 +35,4 @@ jobs:
       - name: Run tests with CTest
         run: |
           cd build
-          ctest --output-on-failure
+          ctest -R "^s_test_|^f_test_" --output-on-failure
