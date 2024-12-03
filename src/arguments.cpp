@@ -3,7 +3,6 @@
 #include "main.hpp"
 #include "compression.hpp"
 
-static void show_version();
 static void compress_file(const char *const file, const char *const archive, compression_type_t type);
 static void extract_archive(const char *const archive, const char *const dst, compression_type_t type);
 
@@ -15,11 +14,6 @@ static argparse::ArgumentParser program(PROJECT_NAME, PROJECT_VERSION);
 
 void arg_configure()
 {
-    program.add_argument("-v", "--version")
-        .help("show program version")
-        .default_value(false)
-        .implicit_value(true);
-
     program.add_argument("-c", "--compress")
         .help("compress a file or directory")
         .default_value(false)
@@ -46,10 +40,7 @@ void arg_parse(int argc, const char *const argv[])
     if (program.is_used("-c") && program.is_used("-e"))
     {
         std::cerr << "Error: Cannot use both compress and extract options" << std::endl;
-    }
-    else if (program.is_used("-v"))
-    {
-        show_version();
+        throw std::runtime_error("Invalid arguments");
     }
     else if (program.is_used("--compress"))
     {
@@ -73,19 +64,20 @@ void arg_parse(int argc, const char *const argv[])
     }
 }
 
-static void show_version()
-{
-    std::cout << "Version: " << PROJECT_VERSION << std::endl;
-}
-
 static void compress_file(const char *const src, const char *const archive, compression_type_t type)
 {
-    compression_compress(src, archive, type);
+    if (compression_compress(src, archive, type))
+    {
+        throw std::runtime_error("Error compressing file");
+    };
 }
 
 static void extract_archive(const char *const archive, const char *const dst, compression_type_t type)
 {
-    compression_extract(archive, dst, type);
+    if (compression_extract(archive, dst, type))
+    {
+        throw std::runtime_error("Error extracting archive");
+    }
 }
 
 static compression_type_t type_to_enum(const char *const type)
