@@ -1,5 +1,24 @@
 # Project Build and Usage Guide
 
+## Install project
+
+To install the project, clone the repository and its submodules:
+
+1. Clone the repository:
+    ```bash
+    git clone git@github.com:RRevkoUA/cpp-archiver.git
+    ```
+
+2. Navigate to the project directory:
+    ```bash
+    cd cpp-archiver
+    ```
+
+3. Initialize and update submodules:
+    ```bash
+    git submodule update --init --recursive
+    ```
+    
 ## Building the Project
 
 To build the project, follow these steps:
